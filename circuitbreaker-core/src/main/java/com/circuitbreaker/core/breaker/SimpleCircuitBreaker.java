@@ -21,10 +21,14 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
   private int accessWindow;
 
   /**
-   * 熔断后自动恢复时间
+   * 熔断后自动恢复时间间隔
    */
   private long recoverMillis;
 
+  /**
+   * 熔断恢复时间点
+   */
+  private volatile long recoverStamp = Long.MAX_VALUE;
 
   /**
    * 已采样数量
@@ -34,17 +38,16 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
   /**
    * 失败数量
    */
-  private AtomicInteger failureTimes = new AtomicInteger();
+  private volatile int failureTimes = 0;
 
-  public SimpleCircuitBreaker(int accessWindow, int breakThreshold, long recover, TimeUnit timeUnit) {
+  public SimpleCircuitBreaker(int accessWindow, int breakThreshold, long recover,
+      TimeUnit timeUnit) {
 
     this.breakThreshold = breakThreshold;
 
     this.accessWindow = accessWindow;
 
-    this.recoverMillis =
-        timeUnit.toMillis(recover) + LocalDateTime.now().toInstant(ZoneOffset.of("+8"))
-            .toEpochMilli();
+    this.recoverMillis = timeUnit.toMillis(recover);
 
   }
 
@@ -74,10 +77,13 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
    * 记录失败次数，CircuitService会在每次调用业务抛出异常后访问方法
    */
   @Override
-  public void failure() {
+  public synchronized void failure() {
 
-    failureTimes.incrementAndGet();
+    if (failureTimes++ == breakThreshold) {
 
+      recoverStamp = recoverMillis + LocalDateTime.now().toInstant(ZoneOffset.of("+8"))
+          .toEpochMilli();
+    }
   }
 
   /**
@@ -85,7 +91,7 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
    */
   @Override
   public boolean isOpen() {
-    return breakThreshold <= failureTimes.get();
+    return breakThreshold <= failureTimes;
   }
 
 
@@ -96,7 +102,7 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
     }
 
     accessTimes.set(1);
-    failureTimes.set(1);
+    failureTimes = 1;
   }
 
   private synchronized void halfRecover() {
@@ -105,11 +111,12 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
       return;
     }
 
-    failureTimes.decrementAndGet();
+    failureTimes = breakThreshold - 1;
+    this.recoverStamp = Long.MAX_VALUE;
   }
 
   private boolean isRecoverAllowed() {
-    return LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() > recoverMillis;
+    return LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() > recoverStamp;
   }
 
 }
