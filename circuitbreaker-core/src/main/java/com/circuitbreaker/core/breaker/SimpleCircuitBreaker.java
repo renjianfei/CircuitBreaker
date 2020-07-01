@@ -79,10 +79,13 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
   @Override
   public synchronized void failure() {
 
-    if (failureTimes++ == breakThreshold) {
+    if (++failureTimes == breakThreshold) {
 
-      recoverStamp = recoverMillis + LocalDateTime.now().toInstant(ZoneOffset.of("+8"))
-          .toEpochMilli();
+      recoverStamp = recoverMillis + nowMillis();
+
+      System.out.println(String.format("SimpleCircuitBreaker: 熔断, 熔断恢复时间 [%d]", recoverStamp));
+
+
     }
   }
 
@@ -101,8 +104,10 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
       return;
     }
 
-    accessTimes.set(1);
-    failureTimes = 1;
+    System.out.println("SimpleCircuitBreaker.recover()");
+
+    accessTimes.set(0);
+    failureTimes = 0;
   }
 
   private synchronized void halfRecover() {
@@ -111,12 +116,18 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
       return;
     }
 
+    System.out.println(String.format("SimpleCircuitBreaker.halfRecover(), timeMills:%d", nowMillis()));
+
     failureTimes = breakThreshold - 1;
     this.recoverStamp = Long.MAX_VALUE;
   }
 
   private boolean isRecoverAllowed() {
-    return LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli() > recoverStamp;
+    return nowMillis() > recoverStamp;
+  }
+
+  private long nowMillis() {
+    return LocalDateTime.now().toInstant(ZoneOffset.of("+8")).toEpochMilli();
   }
 
 }

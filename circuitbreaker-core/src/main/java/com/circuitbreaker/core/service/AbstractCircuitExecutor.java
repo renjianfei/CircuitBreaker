@@ -24,6 +24,8 @@ public abstract class AbstractCircuitExecutor<Req, Res> {
    */
   public Res execute(Req request) throws Exception {
 
+    breaker.access();
+
     if (breaker.isOpen()) {
       return fallBack(request);
     }
@@ -32,17 +34,11 @@ public abstract class AbstractCircuitExecutor<Req, Res> {
 
     try {
 
-      breaker.access();
-
       result = invoke(request);
 
     } catch (Exception e) {
 
       breaker.failure();
-
-      if (breaker.isOpen()) {
-        return fallBack(request);
-      }
 
       throw e;
     }
