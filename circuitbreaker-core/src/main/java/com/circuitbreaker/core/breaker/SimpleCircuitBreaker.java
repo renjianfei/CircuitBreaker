@@ -61,14 +61,9 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
       return;
     }
 
-    if (!isOpen()) {
+    if (isRecoverAllowed()) {
       recover();
       return;
-    }
-
-    if (isRecoverAllowed()) {
-
-      halfRecover();
     }
 
   }
@@ -104,10 +99,11 @@ public class SimpleCircuitBreaker implements CircuitBreaker {
       return;
     }
 
-    System.out.println("SimpleCircuitBreaker.recover()");
+    System.out.println(String.format("SimpleCircuitBreaker.recover(), timeMills:%d", nowMillis()));
 
     accessTimes.set(0);
     failureTimes = 0;
+    this.recoverStamp = Long.MAX_VALUE;
   }
 
   private synchronized void halfRecover() {

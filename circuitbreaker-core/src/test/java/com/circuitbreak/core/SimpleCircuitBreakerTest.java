@@ -10,7 +10,7 @@ import org.testng.annotations.Test;
 @Test
 public class SimpleCircuitBreakerTest {
 
-  private CircuitBreaker breaker = new SimpleCircuitBreaker(50, 10, 1, TimeUnit.SECONDS);
+  private CircuitBreaker breaker = new SimpleCircuitBreaker(50, 10, 200, TimeUnit.MILLISECONDS);
 
   private TestBizService testBizService = new TestBizService(breaker);
 
@@ -20,9 +20,8 @@ public class SimpleCircuitBreakerTest {
     return new TestDataProvider(2,5000);
   }
 
-  @Test(dataProvider = "data", threadPoolSize = 3, timeOut = 1000)
+  @Test(dataProvider = "data", threadPoolSize = 3, invocationCount = 5, timeOut = 1000)
   public void testBreaker(int param) {
-
     try {
       final Boolean result = testBizService.execute(param);
     } catch (Exception e) {
